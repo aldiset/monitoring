@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            padding: 0;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        form {
+            margin-bottom: 20px;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        input, select, button {
+            margin-top: 10px;
+            margin-right: 5px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #007BFF;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <form action="/" method="get">
+        <label for="framework">Framework:</label>
+        <select id="framework" name="framework"></select>
+
+        <label for="type">Type:</label>
+        <select id="type" name="type"></select>
+
+        <label for="operation">Operation:</label>
+        <select id="operation" name="operation"></select>
+
+        <label for="date">Date:</label>
+        <input type="date" id="date" name="date">
+
+        <button type="submit">Filter</button>
+    </form>
+    <div id="plot">
+        {{ graph_html|safe }}
+    </div>
+    <button onclick="downloadImage()">Download Image</button>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            populateDropdown('framework', '/frameworks');
+            populateDropdown('type', '/types');
+            populateOperationsDropdown();
+
+            function populateDropdown(dropdownId, endpoint) {
+                axios.get(endpoint).then(function (response) {
+                    const select = document.getElementById(dropdownId);
+                    select.appendChild(new Option('None', ''));
+                    response.data.forEach(item => {
+                        select.appendChild(new Option(item, item));
+                    });
+                }).catch(function (error) {
+                    console.error(`Error fetching ${dropdownId}:`, error);
+                });
+            }
+
+            function populateOperationsDropdown() {
+                const operations = ['create', 'bulk_create', 'get_list', 'get_detail', 'update', 'delete'];
+                const select = document.getElementById('operation');
+                operations.forEach(operation => {
+                    select.appendChild(new Option(operation, operation));
+                });
+            }
+        });
+
+        function downloadImage() {
+            const svg = document.querySelector('#plot .plotly .main-svg');
+            if (!svg) {
+                alert('Grafik tidak ditemukan.');
+                return;
+            }
+
+            const serializer = new XMLSerializer();
+            let source = serializer.serializeToString(svg);
+            if (!source.match(/^<svg[^>]+"http:\/\/www.w3.org\/2000\/svg"/)) {
+                source = source.replace(/^<svg/, '<svg xmlns="http://www.w3.org/2000/svg"');
+            }
+            if (!source.match(/^<svg[^>]+"http:\/\/www.w3.org\/1999\/xlink"/)) {
+                source = source.replace(/^<svg/, '<svg xmlns:xlink="http://www.w3.org/1999/xlink"');
+            }
+
+            const image = new Image();
+            image.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(source);
+            const canvas = document.createElement('canvas');
+            canvas.width = svg.width.baseVal.value;
+            canvas.height = svg.height.baseVal.value;
+            const context = canvas.getContext('2d');
+            image.onload = function() {
+                context.drawImage(image, 0, 0);
+                const a = document.createElement('a');
+                a.download = "dashboard_plot.png";
+                a.href = canvas.toDataURL('image/png');
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            };
+        }
+    </script>
+</body>
+</html>
