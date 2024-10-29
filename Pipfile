@@ -11,6 +11,7 @@ databases = {extras = ["sqlite"], version = "*"}
 plotly = "*"
 pandas = "*"
 jinja2 = "*"
+python-multipart = "*"
 
 [dev-packages]
 

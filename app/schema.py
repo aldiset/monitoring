@@ -8,7 +8,7 @@ class ResultItem(BaseModel):
 
 class DataCreate(BaseModel):
     type: str
-    framework_name: str
+    framework: str
     specification: str
     result: List[ResultItem]
     created_at: Optional[datetime] = None

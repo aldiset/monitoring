@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/@mdi/font/css/materialdesignicons.min.css" rel="stylesheet">
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -11,20 +12,56 @@
             background-color: #f4f4f4;
             color: #333;
         }
-        form {
-            margin-bottom: 20px;
+        .dropdown-container {
             background-color: #fff;
-            padding: 20px;
+            padding: 10px;
             border-radius: 8px;
-        }
-        input, select, button {
-            margin-top: 10px;
-            margin-right: 5px;
-            padding: 8px;
             border: 1px solid #ddd;
-            border-radius: 4px;
+            margin-bottom: 10px;
+            position: relative;
+        }
+        .dropdown-container h4 {
+            margin: 10px 0;
+        }
+        .dropdown-container .dropdown-button {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            cursor: pointer;
+            border: none;
+            background-color: transparent;
+            width: 100%;
+            justify-content: space-between;
+            border-bottom: 1px solid #ccc;
+        }
+        .dropdown-container .options {
+            display: none;
+            position: absolute;
+            width: 100%;
+            background: white;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+            z-index: 1000;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .dropdown-container.active .options {
+            display: block;
+        }
+        .option {
+            padding: 8px 10px;
+            cursor: pointer;
+        }
+        .option:hover {
+            background-color: #f4f4f4;
+        }
+        .checkbox {
+            margin-right: 10px;
         }
         button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
             background-color: #007BFF;
             color: white;
             cursor: pointer;
@@ -35,53 +72,97 @@
     </style>
 </head>
 <body>
-    <form action="/" method="get">
-        <label for="framework">Framework:</label>
-        <select id="framework" name="framework"></select>
-
+    <div class="dropdown-container">
         <label for="type">Type:</label>
-        <select id="type" name="type"></select>
-
-        <label for="operation">Operation:</label>
-        <select id="operation" name="operation"></select>
-
-        <label for="date">Date:</label>
+        <select id="type"></select>
+    </div>
+    <div class="dropdown-container" id="framework-dropdown">
+        <div class="dropdown-button" onclick="toggleDropdown('framework-dropdown')">
+            <span>Select Frameworks</span>
+            <i class="mdi mdi-chevron-down"></i>
+        </div>
+        <div class="options" id="framework-options">
+        </div>
+    </div>
+    <div class="dropdown-container" id="operation-dropdown">
+        <div class="dropdown-button" onclick="toggleDropdown('operation-dropdown')">
+            <span>Select Operations</span>
+            <i class="mdi mdi-chevron-down"></i>
+        </div>
+        <div class="options" id="operation-options">
+        </div>
+    </div>
+    <div class="dropdown-container">
+        <h4>Date:</h4>
         <input type="date" id="date" name="date">
-
-        <button type="submit">Filter</button>
-    </form>
+    </div>
+    <button onclick="submitSelections()">Filter</button>
     <div id="plot">
         {{ graph_html|safe }}
     </div>
-    <button onclick="downloadImage()">Download Image</button>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            populateDropdown('framework', '/frameworks');
-            populateDropdown('type', '/types');
-            populateOperationsDropdown();
+            populateSelect('type', '/types');
+            populateOptions('framework-options', '/frameworks');
+            populateOptions('operation-options', ['create', 'bulk_create', 'get_list', 'get_detail', 'update', 'delete']);
 
-            function populateDropdown(dropdownId, endpoint) {
+            function populateSelect(selectId, endpoint) {
+                const select = document.getElementById(selectId);
                 axios.get(endpoint).then(function (response) {
-                    const select = document.getElementById(dropdownId);
-                    select.appendChild(new Option('None', ''));
                     response.data.forEach(item => {
-                        select.appendChild(new Option(item, item));
+                        const option = new Option(item, item);
+                        select.appendChild(option);
                     });
                 }).catch(function (error) {
-                    console.error(`Error fetching ${dropdownId}:`, error);
+                    console.error(`Error fetching ${selectId}:`, error);
                 });
             }
 
-            function populateOperationsDropdown() {
-                const operations = ['create', 'bulk_create', 'get_list', 'get_detail', 'update', 'delete'];
-                const select = document.getElementById('operation');
-                operations.forEach(operation => {
-                    select.appendChild(new Option(operation, operation));
-                });
+            function populateOptions(containerId, data) {
+                const container = document.getElementById(containerId);
+                if (Array.isArray(data)) {
+                    data.forEach(item => addOption(container, item));
+                } else {
+                    axios.get(data).then(response => {
+                        response.data.forEach(item => addOption(container, item));
+                    }).catch(error => console.error('Error fetching data:', error));
+                }
+            }
+
+            function addOption(container, item) {
+                const div = document.createElement('div');
+                div.className = 'option';
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.className = 'checkbox';
+                checkbox.value = item;
+                div.appendChild(checkbox);
+                div.append(item);
+                container.appendChild(div);
+            }
+
+            function toggleDropdown(id) {
+                const dropdown = document.getElementById(id);
+                dropdown.classList.toggle('active');
             }
         });
 
+        function submitSelections() {
+            const type = document.getElementById('type').value;
+            const frameworks = Array.from(document.querySelectorAll('#framework-options .checkbox:checked')).map(cb => cb.value);
+            const operations = Array.from(document.querySelectorAll('#operation-options .checkbox:checked')).map(cb => cb.value);
+            const date = document.getElementById('date').value;
+
+            const params = new URLSearchParams({
+                type,
+                framework: frameworks.join(','),
+                operation: operations.join(','),
+                date: date
+            }).toString();
+
+            window.location.href = '/?' + params;
+        }
         function downloadImage() {
             const svg = document.querySelector('#plot .plotly .main-svg');
             if (!svg) {

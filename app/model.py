@@ -7,7 +7,7 @@ class Data(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     type = Column(String, index=True)
-    framework_name = Column(String)
+    framework = Column(String)
     specification = Column(String)
     result = Column(JSON)
     created_at = Column(DateTime, default=datetime.now)

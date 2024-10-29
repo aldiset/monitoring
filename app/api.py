@@ -13,23 +13,27 @@ router = APIRouter()
 templates = Jinja2Templates(directory="templates")
 
 @router.get("/", response_class=HTMLResponse)
-async def read_data(request: Request, framework: str = None, data_type: str = "time", date: str = None, operation: str = None):
+async def read_data(request: Request, framework: str = None, type: str = None, date: str = None, operation: str = None, specification: str = None):
     with session() as db:
-        query = db.query(Data).filter(Data.type == data_type)
-        if framework:
-            query = query.filter(Data.framework_name == framework)
+        query = db.query(Data)
+        if type:
+            query = query.filter(Data.type == type)
         if date:
             query = query.filter(Data.created_at >= datetime.strptime(date, "%Y-%m-%d"))
+        if framework:
+            query = query.filter(Data.framework.in_(framework.split(",")))
+        if specification:
+            query = query.filter(Data.specification == specification)
 
         data_entries = query.all()
         records = [{
-            "framework_name": entry.framework_name,
+            "framework": entry.framework,
             "operation": res['name'],
             "value": float(res['value'])
         } for entry in data_entries for res in entry.result if not operation or res['name'] == operation]
 
         df = pd.DataFrame(records if records else [{"framework_name": "", "operation": "", "value": 0.0}])
-        fig = px.bar(df, x="framework_name", y="value", color="operation", title=f"Performance Metrics: {data_type} Type", orientation='v', barmode='group')
+        fig = px.bar(df, x="framework_name", y="value", color="operation", title=f"Performance Metrics: {type} Type", orientation='v', barmode='group')
         graph_html = fig.to_html(full_html=False)
         context = {"request": request, "graph_html": graph_html}
     return templates.TemplateResponse("index.html", context)
